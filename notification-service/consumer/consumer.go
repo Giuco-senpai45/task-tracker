@@ -16,7 +16,7 @@ type MessageConsumer struct {
 type Message struct {
 	TaskId   int    `json:"task_id"`
 	TaskName string `json:"task_name"`
-	UserId   string `json:"user_id"`
+	UserId   int    `json:"user_id"`
 }
 
 func NewKafkaConsumer(groupId string) (*MessageConsumer, error) {
@@ -44,6 +44,7 @@ func (c *MessageConsumer) Consume(wg *sync.WaitGroup) {
 
 	signals := make(chan os.Signal, 1)
 
+	log.Info("Starting consumer consume loop")
 ConsumerLoop:
 	for {
 		select {
@@ -54,7 +55,7 @@ ConsumerLoop:
 				log.Error("Error decoding message: ", err)
 				continue
 			}
-			log.Info("Received message: %v", message)
+			processMessage(message)
 
 		case err := <-partitionConsumer.Errors():
 			log.Error("Error: %v", err)
@@ -63,4 +64,9 @@ ConsumerLoop:
 			break ConsumerLoop
 		}
 	}
+}
+
+func processMessage(message Message) {
+	// Process the message. This is just a placeholder - replace with your actual processing logic.
+	log.Info("Processing message: %v", message)
 }

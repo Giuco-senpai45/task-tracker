@@ -76,9 +76,9 @@ func (ts *TaskService) CheckDeadlines() {
 				tasks := []models.Task{}
 				dbErr := models.GetAllTasksByDeadline(&tasks)
 
-				if err := dbErr.Error; err != nil {
-					errors.Error(err)
-					log.Error("Error getting tasks by deadline: %v", err)
+				if dbErr.Error != nil {
+					log.Error("Error getting tasks by deadline: %v", dbErr.Error)
+					continue
 				}
 				log.Info("Got tasks by deadline %v", tasks)
 
@@ -88,7 +88,10 @@ func (ts *TaskService) CheckDeadlines() {
 						TaskName: task.Name,
 						UserId:   int(task.UserId),
 					}
-					ts.mp.ProduceMessage(msg)
+					err := ts.mp.ProduceMessage(msg)
+					if err != nil {
+						log.Error("Error producing message: %v", err)
+					}
 				}
 			}
 		}

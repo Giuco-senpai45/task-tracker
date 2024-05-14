@@ -16,5 +16,7 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
+	wg.Add(1) // Add a count to the WaitGroup
 	kc.Consume(&wg)
+	wg.Wait() // Wait for all goroutines to finish
 }

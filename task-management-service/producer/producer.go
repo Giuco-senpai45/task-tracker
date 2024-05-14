@@ -45,6 +45,7 @@ func (p *MessageProducer) ProduceMessage(payload any) error {
 		Topic: topic,
 		Value: sarama.ByteEncoder(value),
 	}
+	log.Info("Produced message %v", message)
 
 	partition, offset, err := p.Producer.SendMessage(message)
 	if err != nil {

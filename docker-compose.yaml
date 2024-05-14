@@ -47,8 +47,8 @@ services:
     volumes:
       - tasks_data:/var/lib/postgresql/data
       
-  task-service:
-    container_name: task-service
+  task-service-1:
+    container_name: task-service-1
     build:
       context: ./task-management-service
       dockerfile: Dockerfile
@@ -56,12 +56,27 @@ services:
     depends_on:
       - broker
       - tasks-pg
-      - reverse-proxy
     ports:
       - "8080:8080"
-    deploy:
-      mode: replicated
-      replicas: 1
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+      - DB_HOST=tasks-pg
+      - DB_PORT=5432
+      - DB_NAME=tasks-db
+      - APP_PORT=8080
+
+  task-service-2:
+    container_name: task-service-2
+    build:
+      context: ./task-management-service
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - broker
+      - tasks-pg
+    ports:
+      - "8081:8080"
     environment:
       - DB_USER=postgres
       - DB_PASSWORD=admin
@@ -88,17 +103,37 @@ services:
     volumes:
       - users_data:/var/lib/postgresql/data
       
-  auth-service:
-    container_name: auth-service
+  auth-service-1:
+    container_name: auth-service-1
     build:
       context: ./user-auth-service
       dockerfile: Dockerfile
     restart: always
     depends_on:
       - users-pg
-      - reverse-proxy
     ports:
-      - "8081:8081"
+      - "8082:8081"
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+      - DB_HOST=users-pg
+      - DB_PORT=5432
+      - DB_NAME=users-db
+      - APP_PORT=8081
+
+  auth-service-2:
+    container_name: auth-service-2
+    build:
+      context: ./user-auth-service
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - users-pg
+    ports:
+      - "8083:8081"
     deploy:
       mode: replicated
       replicas: 1
@@ -127,6 +162,11 @@ services:
     container_name: reverse-proxy
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - auth-service-1
+      - auth-service-2
+      - task-service-1
+      - task-service-2
     ports:
       - 80:80
     restart: on-failure
