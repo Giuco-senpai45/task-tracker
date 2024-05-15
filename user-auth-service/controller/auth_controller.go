@@ -5,11 +5,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"ua-service/http/requests"
 	"ua-service/jwt"
 	"ua-service/service"
 	"ua-service/utils"
 	"ua-service/utils/log"
+
+	jwt5 "github.com/golang-jwt/jwt/v5"
 )
 
 type AuthController struct {
@@ -83,9 +86,17 @@ func (c *AuthController) ValidateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !wt.Valid {
+	claims, ok := wt.Claims.(jwt5.MapClaims)
+	if !ok || !wt.Valid {
 		log.Error("Invalid token")
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	exp, ok := claims["exp"].(float64)
+	if !ok || time.Now().Unix() > int64(exp) {
+		log.Error("Token is expired")
+		http.Error(w, "Token is expired", http.StatusUnauthorized)
 		return
 	}
 

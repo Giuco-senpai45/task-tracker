@@ -19,11 +19,7 @@ class UserBehavior(HttpUser):
         else:
             print("Failed to login")
 
-    @task(2)
+    @task(1)
     def get_tasks(self):
         headers = {'Authorization': f'Bearer {self.jwt_token}', 'X-User-Id': str(self.user_id)}
         self.client.get("/api/v1/tasks", headers=headers)
-
-    @task(1)
-    def index(self):
-        self.client.get("/")

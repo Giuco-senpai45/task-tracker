@@ -18,17 +18,31 @@ services:
     depends_on:
       - zookeeper
     ports:
+      - 29092:29092
       - 9092:9092
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://broker:29092,PLAINTEXT://localhost:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://broker:29092,PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
 
+  init-kafka-container:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - broker
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # rather than giving sleep 15 use this 
+      # to block init container to wait for Kafka broker to be ready  
+      kafka-topics --bootstrap-server broker:9092 --list
+
+      # create init topics
+      kafka-topics --create --partitions 3 --bootstrap-server broker:9092 --topic bt
+      "
+  
   tasks-pg:
     container_name: tasks-pg
     image: postgres
@@ -153,9 +167,6 @@ services:
     restart: always
     depends_on:
       - broker
-    deploy:
-      mode: replicated
-      replicas: 1
 
   reverse-proxy:
     image: nginx
@@ -171,7 +182,6 @@ services:
       - 80:80
     restart: on-failure
     
-
 # networks:
 #   net1:
 #     driver: bridge

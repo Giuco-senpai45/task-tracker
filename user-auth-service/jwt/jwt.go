@@ -13,10 +13,10 @@ var secretKey = os.Getenv("JWT_SECRET_KEY")
 
 func GenerateToken(email string, id int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":        id,
-		"email":     email,
-		"IssuedAt":  time.Now(),
-		"ExpiresAt": time.Now().Add(10 * time.Minute),
+		"id":    id,
+		"email": email,
+		"iat":   time.Now().Unix(),
+		"exp":   time.Now().Add(1 * time.Hour).Unix(),
 	})
 
 	jwtToken, err := token.SignedString([]byte(secretKey))

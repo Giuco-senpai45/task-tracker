@@ -21,7 +21,7 @@ func NewKafkaProducer() (*MessageProducer, error) {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 
-	producer, err := sarama.NewSyncProducer([]string{"broker:29092"}, config)
+	producer, err := sarama.NewSyncProducer([]string{"broker:9092"}, config)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func GetNullMessageProducer() *MessageProducer {
 }
 
 func (p *MessageProducer) ProduceMessage(payload any) error {
-	topic := "tm-topic"
+	topic := "bt"
 
 	value, err := json.Marshal(payload)
 	if err != nil {

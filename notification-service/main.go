@@ -9,14 +9,14 @@ import (
 func main() {
 	log.Instantiate()
 
-	topic := "tm-topic"
-	kc, err := consumer.NewKafkaConsumer(topic)
+	groupId := "consumer-group"
+	kc, err := consumer.NewKafkaConsumer(groupId)
 	if err != nil {
 		log.Error("Error creating Kafka consumer: %v", err)
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1) // Add a count to the WaitGroup
-	kc.Consume(&wg)
+	consumer.Consume(kc, &wg)
 	wg.Wait() // Wait for all goroutines to finish
 }
