@@ -12,6 +12,7 @@ var (
 	ErrInRequestMarshaling = errors.New("invalid/bad request paramenters")
 	ErrDuplicateEmail      = errors.New("email already exists")
 	ErrMalformedToken      = errors.New("malformed jwt token")
+	ErrNonExistingService  = errors.New("service does not exist")
 )
 
 func Error(e error) {

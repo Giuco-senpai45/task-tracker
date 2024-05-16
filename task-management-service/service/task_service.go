@@ -16,9 +16,13 @@ type TaskService struct {
 	mp *producer.MessageProducer
 }
 
-func NewTaskService(db *gorm.DB, mp *producer.MessageProducer) *TaskService {
+func NewTaskService(db *gorm.DB, mp *producer.MessageProducer) (*TaskService, error) {
+	if mp == nil {
+		return nil, errors.ErrNonExistingService
+	}
+
 	models.New(db)
-	return &TaskService{db: db, mp: mp}
+	return &TaskService{db: db, mp: mp}, nil
 }
 
 func (ts *TaskService) AddTask(name string, deadline time.Time, userId int) (responses.TaskResponse, error) {
@@ -28,8 +32,11 @@ func (ts *TaskService) AddTask(name string, deadline time.Time, userId int) (res
 		Deadline:  deadline,
 		Completed: false,
 	}
-	err := task.AddTask()
-	errors.DBErrorCheck(err)
+	dbErr := task.AddTask()
+	errors.DBErrorCheck(dbErr)
+
+	log.Info("Added task %v", task)
+	ts.sendKafkaMessage(&task, "add_task")
 
 	return responses.TaskResponse{
 		Task: task,
@@ -38,8 +45,12 @@ func (ts *TaskService) AddTask(name string, deadline time.Time, userId int) (res
 
 func (ts *TaskService) GetAllTasksForUser(id int) (responses.TaskListResponse, error) {
 	tasks := []models.Task{}
-	err := models.GetAllTasksForUser(uint(id), &tasks)
-	errors.DBErrorCheck(err)
+	dbErr := models.GetAllTasksForUser(uint(id), &tasks)
+	errors.DBErrorCheck(dbErr)
+
+	for _, task := range tasks {
+		ts.sendKafkaMessage(&task, "get_tasks")
+	}
 
 	return responses.TaskListResponse{
 		Tasks: tasks,
@@ -48,8 +59,10 @@ func (ts *TaskService) GetAllTasksForUser(id int) (responses.TaskListResponse, e
 
 func (ts *TaskService) CompleteTask(taskId, userId int) (responses.TaskResponse, error) {
 	task := models.Task{}
-	err := models.CompleteTask(taskId, userId, &task)
-	errors.DBErrorCheck(err)
+	dbErr := models.CompleteTask(taskId, userId, &task)
+	errors.DBErrorCheck(dbErr)
+
+	ts.sendKafkaMessage(&task, "complete_task")
 
 	return responses.TaskResponse{
 		Task: task,
@@ -57,8 +70,16 @@ func (ts *TaskService) CompleteTask(taskId, userId int) (responses.TaskResponse,
 }
 
 func (ts *TaskService) DeleteTaskById(taskId, userId int) error {
-	err := models.DeleteTaskById(userId, taskId)
-	errors.DBErrorCheck(err)
+	dbErr := models.DeleteTaskById(userId, taskId)
+	errors.DBErrorCheck(dbErr)
+
+	task := models.Task{
+		Model: gorm.Model{
+			ID: uint(taskId),
+		},
+		UserId: uint(userId),
+	}
+	ts.sendKafkaMessage(&task, "delete_task")
 
 	return nil
 }
@@ -83,17 +104,24 @@ func (ts *TaskService) CheckDeadlines() {
 				log.Info("Got tasks by deadline %v", tasks)
 
 				for _, task := range tasks {
-					msg := &producer.Message{
-						TaskId:   int(task.ID),
-						TaskName: task.Name,
-						UserId:   int(task.UserId),
-					}
-					err := ts.mp.ProduceMessage(msg)
-					if err != nil {
-						log.Error("Error producing message: %v", err)
-					}
+					ts.sendKafkaMessage(&task, "deadline_task")
 				}
 			}
 		}
 	}()
+}
+
+func (ts *TaskService) sendKafkaMessage(task *models.Task, msgType string) {
+	go func(task *models.Task, msgType string) {
+		msg := &producer.Message{
+			Type:     msgType,
+			TaskId:   int(task.ID),
+			TaskName: task.Name,
+			UserId:   int(task.UserId),
+		}
+		err := ts.mp.ProduceMessage(msg)
+		if err != nil {
+			log.Error("Error producing message: %v", err)
+		}
+	}(task, msgType)
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"ntf-service/log"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -14,6 +16,7 @@ type MessageConsumer struct {
 }
 
 type Message struct {
+	Type     string `json:"type"`
 	TaskId   int    `json:"task_id"`
 	TaskName string `json:"task_name"`
 	UserId   int    `json:"user_id"`
@@ -46,7 +49,7 @@ func (consumer *ConsumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupS
 }
 
 func processMessage(message Message, offset int64, partition int32) {
-	log.Info("Processing message: %v, Offset: %v, Partition: %v", message, offset, partition)
+	log.Info("Processing message: %v -  Offset: %v - Partition: %v", message, offset, partition)
 }
 
 func NewKafkaConsumer(groupId string) (sarama.ConsumerGroup, error) {
@@ -54,7 +57,7 @@ func NewKafkaConsumer(groupId string) (sarama.ConsumerGroup, error) {
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	consumerGroup, err := sarama.NewConsumerGroup([]string{"broker:9092"}, groupId, config)
+	consumerGroup, err := sarama.NewConsumerGroup([]string{"broker1:9092", "broker2:9093"}, groupId, config)
 	if err != nil {
 		return nil, err
 	}
@@ -71,11 +74,15 @@ func Consume(consumerGroup sarama.ConsumerGroup, wg *sync.WaitGroup) {
 		ready: make(chan bool),
 	}
 
+	topic := os.Getenv("KAFKA_TOPIC")
+
 	ctx := context.Background()
 	for {
-		err := consumerGroup.Consume(ctx, []string{"bt"}, &consumer)
+		err := consumerGroup.Consume(ctx, []string{topic}, &consumer)
 		if err != nil {
 			log.Error("Error from consumer: %v", err)
+			time.Sleep(3 * time.Second)
+			continue
 		}
 		if ctx.Err() != nil {
 			log.Error("Context error: %v", ctx.Err())

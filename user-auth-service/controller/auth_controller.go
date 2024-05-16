@@ -40,7 +40,7 @@ func (c *AuthController) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteResponse(res, http.StatusOK, w)
+	utils.WriteResponse(res, http.StatusCreated, w)
 }
 
 func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {

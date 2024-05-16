@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 	"tm-service/controller"
 	"tm-service/db"
 	"tm-service/http/routes"
@@ -36,16 +37,25 @@ func main() {
 	}
 	defer db.CloseConnection(dbAdapter)
 
-	kafkaProducer, err := producer.NewKafkaProducer()
-	if err != nil {
-		log.Error("Error creating kafka producer: %v", err)
+	var kafkaProducer *producer.MessageProducer
+	maxAttempts := 10
+	for i := 0; i < maxAttempts; i++ {
+		kafkaProducer, err = producer.NewKafkaProducer()
+		if err != nil {
+			log.Error("Error creating kafka producer: %v", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		break
 	}
 
-	// kafkaProducer := producer.GetNullMessageProducer()
-	ts := service.NewTaskService(dbAdapter, kafkaProducer)
+	if kafkaProducer == nil {
+		log.Fatal("Failed to create kafka producer after %d attempts", maxAttempts)
+	}
+	ts, err := service.NewTaskService(dbAdapter, kafkaProducer)
 	tc := controller.NewTaskController(ts)
 
-	ts.CheckDeadlines()
+	// ts.CheckDeadlines()
 
 	router := http.NewServeMux()
 	routes.RegisterTaskRoutes(router, tc)
